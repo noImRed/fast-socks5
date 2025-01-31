@@ -15,4 +15,4 @@ a simple SOCKS5 server written in Luvit
 - addresses:
    1. [x] IPv4
    2. [x] domain
-   3. [ ] IPv6
+   3. [x] IPv6
