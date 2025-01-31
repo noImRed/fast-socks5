@@ -10,10 +10,10 @@ local PORT = 1080
 --- working auth types:
 --- M_NOAUTH - no auth
 --- M_USERNAMEPASSWORD - username/password
-local AUTH_TYPE = M_NOAUTH
+local AUTH_TYPE = M_USERNAMEPASSWORD
 --- only for username/password auth
-local AUTH_USERNAME = 'test'
-local AUTH_PASSWORD = 'test2'
+local AUTH_USERNAME = 'squeak-fun'
+local AUTH_PASSWORD = 'squeak-fun'
 
 local function safeCall(fn, ...)
     local a = {...}
@@ -58,10 +58,8 @@ end
 
 local function userpassAuthProcedure(reader, socket)
     reader(1)
-    local ulen = reader(1):byte()
-    local username = reader(ulen)
-    local plen = reader(1):byte()
-    local password = reader(plen)
+    local username = reader(reader(1):byte())
+    local password = reader(reader(1):byte())
     if username ~= AUTH_USERNAME or password ~= AUTH_PASSWORD then
         p('auth fail')
         socket:write('\1\1')
@@ -79,7 +77,7 @@ local function cmd_connect(reader, socket)
     p('atyp', atyp)
     if atyp == '\1' then
         p('selected ipv4')
-        addr = table.concat({reader(1):byte(), reader(1):byte(), reader(1):byte(), reader(1):byte()}, '.')
+        addr = string.format('%d.%d.%d.%d', reader(1):byte(), reader(1):byte(), reader(1):byte(), reader(1):byte())
     elseif atyp == '\3' then
         p('selected domain')
         local dlen = reader(1):byte()
@@ -101,6 +99,21 @@ local function cmd_connect(reader, socket)
 
         addr = addr[1].addr
     elseif atyp == '\4' then
+        p('selected ipv6')
+        addr = string.format(
+            '%02X%02X:%02X%02X:%02X%02X:%02X%02X:%02X%02X:%02X%02X:%02X%02X:%02X%02X',
+
+            reader(1):byte(), reader(1):byte(),
+            reader(1):byte(), reader(1):byte(),
+            reader(1):byte(), reader(1):byte(),
+            reader(1):byte(), reader(1):byte(),
+            reader(1):byte(), reader(1):byte(),
+            reader(1):byte(), reader(1):byte(),
+            reader(1):byte(), reader(1):byte(),
+            reader(1):byte(), reader(1):byte()
+        )
+    else
+        p('invalid atyp')
         socket:write('\5\8' .. DEFAULT_RSV_BND_IPV4)
         closeSocket(socket)
         return
@@ -149,6 +162,7 @@ local function cmd_connect(reader, socket)
         end) then
             p('client socket read_start fail')
             close()
+            return
         end
 
         if not remote:read_start(function (err, data)
@@ -215,7 +229,7 @@ end
 
 local server = uv.new_tcp()
 assert(server:bind(HOST, PORT))
-assert(server:listen(128, function (err)
+assert(server:listen(256, function (err)
     if err then error(err) end
     local socket = uv.new_tcp()
     server:accept(socket)
